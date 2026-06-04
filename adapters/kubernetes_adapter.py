@@ -218,7 +218,9 @@ class KubernetesAdapter(TmosBase):
                     ep_members = self._build_members(endpoints.get(ep_key), tgt_port, pool_name)
                     members[pool_name] = ep_members
 
-        # ── Ingress rules → virtual servers ───────────────────────────────────
+        # ── Ingress rules → virtual servers ─────────────────────────────────────
+        # One VS per ingress — nG1 keys on IP:port so multiple paths per
+        # ingress would conflict. One VS per ingress using first backend pool.
         for ing in ingresses:
             ns      = ing["metadata"]["namespace"]
             name    = ing["metadata"]["name"]
@@ -230,35 +232,56 @@ class KubernetesAdapter(TmosBase):
                 continue
             ing_ip = ing_ips[0]
 
+            hosts = []
+            first_svc_name = ""
+            first_svc_port = 80
             for rule in ing["spec"].get("rules", []):
-                host  = rule.get("host", "")
-                http  = rule.get("http", {})
-                for path_def in http.get("paths", []):
-                    backend  = path_def.get("backend", {})
-                    svc_ref  = backend.get("service", {})
+                host = rule.get("host", "")
+                if host:
+                    hosts.append(host)
+                for path_def in rule.get("http", {}).get("paths", []):
+                    svc_ref  = path_def.get("backend", {}).get("service", {})
                     svc_name = svc_ref.get("name", "")
                     svc_port = svc_ref.get("port", {}).get("number", 80)
-                    path     = path_def.get("path", "/")
-
-                    vs_name   = f"{ns}-ing-{name}-{svc_name}_{svc_port}"
+                    if not svc_name:
+                        continue
+                    if not first_svc_name:
+                        first_svc_name = svc_name
+                        first_svc_port = svc_port
                     pool_name = f"{ns}-{svc_name}-{svc_port}"
-                    desc      = f"K8s Ingress {ns}/{name} host={host} path={path}"
-
-                    # Only add VS if not already added by LoadBalancer svc
-                    if not any(v["name"] == vs_name for v in virtuals):
-                        virtuals.append(virtual_server(
-                            name=vs_name,
-                            destination=f"{ing_ip}:80",
-                            pool=pool_name,
-                            description=desc,
-                        ))
-
-                    # Pool — reuse if already exists from LB svc
                     if not any(p["name"] == pool_name for p in pools):
-                        pools.append(pool(name=pool_name, description=desc))
-                        ep_key     = f"{ns}/{svc_name}"
-                        ep_members = self._build_members(endpoints.get(ep_key), svc_port, pool_name)
-                        members[pool_name] = ep_members
+                        pools.append(pool(name=pool_name,
+                                          description=f"K8s Ingress {ns}/{name} -> {svc_name}:{svc_port}",
+                                          lb_method="round-robin"))
+                        ep_key = f"{ns}/{svc_name}"
+                        members[pool_name] = self._build_members(endpoints.get(ep_key), svc_port, pool_name)
+
+            if not first_svc_name:
+                continue
+
+            vs_name   = f"{ns}-ing-{name}_{first_svc_port}"
+            pool_name = f"{ns}-{first_svc_name}-{first_svc_port}"
+            desc      = f"K8s Ingress {ns}/{name} hosts={','.join(hosts)}"
+
+            if not any(v["name"] == vs_name for v in virtuals):
+                virtuals.append(virtual_server(
+                    name=vs_name,
+                    destination=f"{ing_ip}:80",
+                    pool=pool_name,
+                    description=desc,
+                ))
+
+        # ── Deduplicate by destination — nG1 keys on IP:port ────────────────────
+        seen_dest = set()
+        deduped   = []
+        for vs in virtuals:
+            dest = vs.get("destination", "")
+            if dest not in seen_dest:
+                seen_dest.add(dest)
+                deduped.append(vs)
+            else:
+                log.debug("[k8s] Skipping duplicate destination %s (%s)", dest, vs["name"])
+        virtuals = deduped
 
         log.info("[k8s] Fetched: %d virtuals, %d pools, %d total members",
                  len(virtuals), len(pools), sum(len(m) for m in members.values()))
