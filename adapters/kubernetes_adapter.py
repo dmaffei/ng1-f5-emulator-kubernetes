@@ -357,11 +357,24 @@ class KubernetesAdapter(TmosBase):
         except Exception as e:
             log.error("[k8s] Initial cache load failed: %s", e)
 
+        # Also watch endpoints in a separate thread
+        ep_thread = threading.Thread(target=self._watch_endpoints_loop, daemon=True)
+        ep_thread.start()
+
         while True:
             try:
                 self._watch_resource("api/v1/services")
             except Exception as e:
-                log.warning("[k8s] Watch error: %s — retrying in 15s", e)
+                log.warning("[k8s] Watch services error: %s — retrying in 15s", e)
+                time.sleep(15)
+
+    def _watch_endpoints_loop(self):
+        """Watch K8s endpoints — refresh cache when pod IPs change."""
+        while True:
+            try:
+                self._watch_resource("api/v1/endpoints")
+            except Exception as e:
+                log.warning("[k8s] Watch endpoints error: %s — retrying in 15s", e)
                 time.sleep(15)
 
     def _watch_resource(self, path: str):
