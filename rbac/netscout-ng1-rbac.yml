@@ -1,0 +1,42 @@
+# NETSCOUT nGeniusONE — Kubernetes read-only service account
+# Apply with: kubectl apply -f rbac/netscout-ng1-rbac.yml
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: netscout-ng1
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: netscout-ng1-reader
+rules:
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: netscout-ng1-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: netscout-ng1-reader
+subjects:
+- kind: ServiceAccount
+  name: netscout-ng1
+  namespace: kube-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: netscout-ng1-token
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: netscout-ng1
+type: kubernetes.io/service-account-token
