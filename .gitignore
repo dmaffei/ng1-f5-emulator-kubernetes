@@ -1,0 +1,5 @@
+kubeconfig/token
+kubeconfig/ca.crt
+*.env
+__pycache__/
+*.pyc

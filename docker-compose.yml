@@ -1,0 +1,20 @@
+services:
+  tmos-shim-kubernetes:
+    build: .
+    container_name: tmos-shim-kubernetes
+    restart: unless-stopped
+    ports:
+      - "192.168.30.35:8447:8443"
+    volumes:
+      - ./certs:/app/certs:ro
+      - ./backends/kubernetes.yml:/app/backends.yml:ro
+      - ./kubeconfig:/app/kubeconfig:ro
+    env_file: [.env]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,ssl; ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE; urllib.request.urlopen('https://localhost:8443/health',context=ctx)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
