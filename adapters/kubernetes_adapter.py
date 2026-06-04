@@ -186,7 +186,7 @@ class KubernetesAdapter(TmosBase):
                     ))
 
                     # Pool
-                    p = pool(name=pool_name, description=f"{ns}/{name} port {port}", lb_method="round-robin")
+                    p = pool(name=pool_name, description=pool_name, lb_method="round-robin")
                     pools.append(p)
 
                     # Members from endpoints
@@ -212,7 +212,7 @@ class KubernetesAdapter(TmosBase):
                         description=f"K8s ClusterIP {ns}/{name}",
                         protocol=proto,
                     ))
-                    p = pool(name=pool_name, description=f"{ns}/{name} port {port}")
+                    p = pool(name=pool_name, description=pool_name)
                     pools.append(p)
                     ep_key   = f"{ns}/{name}"
                     ep_members = self._build_members(endpoints.get(ep_key), tgt_port, pool_name)
@@ -251,7 +251,7 @@ class KubernetesAdapter(TmosBase):
                     pool_name = f"sp-{svc_name}-{svc_port}"
                     if not any(p["name"] == pool_name for p in pools):
                         pools.append(pool(name=pool_name,
-                                          description=f"K8s Ingress {ns}/{name} -> {svc_name}:{svc_port}",
+                                          description=pool_name,
                                           lb_method="round-robin"))
                         ep_key = f"{ns}/{svc_name}"
                         members[pool_name] = self._build_members(endpoints.get(ep_key), svc_port, pool_name)
