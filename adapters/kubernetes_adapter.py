@@ -172,8 +172,8 @@ class KubernetesAdapter(TmosBase):
                     port     = port_def.get("port", 80)
                     proto    = _PROTO_MAP.get(port_def.get("protocol", "TCP"), "tcp")
                     tgt_port = port_def.get("targetPort", port)
-                    vs_name  = f"{ns}-{name}_{port}"
-                    pool_name = f"{ns}-{name}-{port}"
+                    vs_name  = f"{name}_{port}"
+                    pool_name = f"{name}-{port}"
                     enabled  = svc["spec"].get("externalTrafficPolicy") != "None"
 
                     virtuals.append(virtual_server(
@@ -203,7 +203,7 @@ class KubernetesAdapter(TmosBase):
                     proto     = _PROTO_MAP.get(port_def.get("protocol", "TCP"), "tcp")
                     tgt_port  = port_def.get("targetPort", port)
                     vs_name   = f"{ns}-{name}_{port}"
-                    pool_name = f"{ns}-{name}-{port}"
+                    pool_name = f"{name}-{port}"
 
                     virtuals.append(virtual_server(
                         name=vs_name,
@@ -248,7 +248,7 @@ class KubernetesAdapter(TmosBase):
                     if not first_svc_name:
                         first_svc_name = svc_name
                         first_svc_port = svc_port
-                    pool_name = f"{ns}-{svc_name}-{svc_port}"
+                    pool_name = f"{svc_name}-{svc_port}"
                     if not any(p["name"] == pool_name for p in pools):
                         pools.append(pool(name=pool_name,
                                           description=f"K8s Ingress {ns}/{name} -> {svc_name}:{svc_port}",
@@ -259,8 +259,8 @@ class KubernetesAdapter(TmosBase):
             if not first_svc_name:
                 continue
 
-            vs_name   = f"{ns}-ing-{name}_{first_svc_port}"
-            pool_name = f"{ns}-{first_svc_name}-{first_svc_port}"
+            vs_name   = f"ing-{name}_{first_svc_port}"
+            pool_name = f"{first_svc_name}-{first_svc_port}"
             desc      = f"K8s Ingress {ns}/{name} hosts={','.join(hosts)}"
 
             if not any(v["name"] == vs_name for v in virtuals):
