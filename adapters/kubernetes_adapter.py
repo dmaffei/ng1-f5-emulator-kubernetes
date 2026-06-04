@@ -173,7 +173,7 @@ class KubernetesAdapter(TmosBase):
                     proto    = _PROTO_MAP.get(port_def.get("protocol", "TCP"), "tcp")
                     tgt_port = port_def.get("targetPort", port)
                     vs_name  = f"k-{name}-{port}"
-                    pool_name = f"k-{name}-{port}"
+                    pool_name = f"p-{name}-{port}"
                     enabled  = svc["spec"].get("externalTrafficPolicy") != "None"
 
                     virtuals.append(virtual_server(
@@ -203,7 +203,7 @@ class KubernetesAdapter(TmosBase):
                     proto     = _PROTO_MAP.get(port_def.get("protocol", "TCP"), "tcp")
                     tgt_port  = port_def.get("targetPort", port)
                     vs_name   = f"{ns}-{name}_{port}"
-                    pool_name = f"k-{name}-{port}"
+                    pool_name = f"p-{name}-{port}"
 
                     virtuals.append(virtual_server(
                         name=vs_name,
@@ -248,7 +248,7 @@ class KubernetesAdapter(TmosBase):
                     if not first_svc_name:
                         first_svc_name = svc_name
                         first_svc_port = svc_port
-                    pool_name = f"k-{svc_name}-{svc_port}"
+                    pool_name = f"p-{svc_name}-{svc_port}"
                     if not any(p["name"] == pool_name for p in pools):
                         pools.append(pool(name=pool_name,
                                           description=f"K8s Ingress {ns}/{name} -> {svc_name}:{svc_port}",
@@ -260,7 +260,7 @@ class KubernetesAdapter(TmosBase):
                 continue
 
             vs_name   = f"k-ing-{name}-{first_svc_port}"
-            pool_name = f"k-{first_svc_name}-{first_svc_port}"
+            pool_name = f"p-{first_svc_name}-{first_svc_port}"
             desc      = f"K8s Ingress {ns}/{name} hosts={','.join(hosts)}"
 
             if not any(v["name"] == vs_name for v in virtuals):
